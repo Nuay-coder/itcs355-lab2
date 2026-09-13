@@ -25,3 +25,5 @@ __pycache__/
 .ruff_cache/
 .DS_Store
 .claude/
+.DS_Store
+.claude/
