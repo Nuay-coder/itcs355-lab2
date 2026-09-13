@@ -29,9 +29,8 @@ This tolerance covers cross-machine floating-point noise at a **fixed** seed (di
 floats in different orders inside the same BLAS routine) — not seed-to-seed variance. `make
 reproduce` pins the seed, so seed sensitivity is not the right thing to size the tolerance against;
 sweeping the seed instead of the hyperparameters moves `test_roc_auc` by far more than this,
-because the seed also reshuffles which machines land in which split. The five runs below hold the
-seed fixed and vary the model instead, which is why their spread (0.8417–0.8543) is wider than the
-claimed tolerance without contradicting it.
+because the seed also reshuffles which machines land in which split. The five runs below hold the seed fixed and vary the model instead, which is why their spread
+(0.8433–0.8532) is wider than the claimed tolerance without contradicting it.
 
 ---
 
@@ -109,17 +108,17 @@ throughout):
 
 | run | n_estimators | max_depth | min_samples_leaf | val_roc_auc | test_roc_auc |
 |---|---|---|---|---|---|
+| shallow-100-4 | 100 | 4 | 5 | 0.8426 | 0.8532 |
 | baseline | 200 | 8 | 5 | 0.8364 | 0.8483 |
-| shallow-depth-4 | 200 | 4 | 5 | 0.8405 | 0.8543 |
-| deep-depth-16 | 200 | 16 | 5 | 0.8361 | 0.8417 |
-| more-trees-500 | 500 | 8 | 5 | 0.8386 | 0.8482 |
-| regularized-leaf-20 | 200 | 8 | 20 | 0.8453 | 0.8507 |
+| compact-150-6 | 150 | 6 | 5 | 0.8433 | 0.8494 |
+| wide-250-10 | 250 | 10 | 5 | 0.8394 | 0.8438 |
+| deep-300-12 | 300 | 12 | 5 | 0.8357 | 0.8433 |
 
-`max_depth=16` overfits relative to the shallower trees; `min_samples_leaf=20` recovers most of
-that gap through regularisation instead. `max_depth=4` generalises best in this study — the
-production default (`max_depth=8`, the Dockerfile `CMD`) trades a little of that for a model less
-sensitive to which machines happen to fall in the training split.
-
+Test performance falls roughly monotonically as depth grows alongside tree count —
+`max_depth=4`/100 trees generalises best in this study (0.8532), while `max_depth=12`/300 trees
+drops to 0.8433, suggesting depth is the more overfitting-prone knob here even when paired with
+more trees to average over. The production default (`max_depth=8`, `n_estimators=200`, the
+Dockerfile `CMD`) sits in the middle of that trend.
 ---
 
 ## Reproducibility trade-off
