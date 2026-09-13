@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from pathlib import Path
 
@@ -23,6 +24,11 @@ from src import config, data, seeds
 
 
 def git_commit() -> str:
+    # Baked in as a build arg for the Docker path — the image ships no .git directory
+    # for `git rev-parse` to inspect. Falls back to the live repo for local runs.
+    baked_in = os.environ.get("GIT_COMMIT")
+    if baked_in:
+        return baked_in
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],

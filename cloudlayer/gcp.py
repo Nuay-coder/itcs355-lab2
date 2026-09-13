@@ -15,20 +15,64 @@ Hints for Lab 1:
 """
 from __future__ import annotations
 
+import re
+import subprocess
+from pathlib import Path
 from typing import Any
 
 from cloudlayer.base import CloudAdapter
 
+_DIGEST_RE = re.compile(r"digest:\s*(sha256:[0-9a-f]{64})")
+
+
+def _split_gs_uri(uri: str) -> tuple[str, str]:
+    without_scheme = uri.removeprefix("gs://")
+    bucket, _, key = without_scheme.partition("/")
+    return bucket, key
+
 
 class GcpAdapter(CloudAdapter):
     def upload(self, local_path: str, key: str) -> str:
-        raise NotImplementedError("TODO Lab 1: blob.upload_from_filename, return the gs:// URI")
+        from google.cloud import storage
+
+        bucket_name, prefix = _split_gs_uri(self.cfg.blob_uri)
+        full_key = f"{prefix.rstrip('/')}/{key}" if prefix else key
+        client = storage.Client(project=self.cfg.project_id)
+        blob = client.bucket(bucket_name).blob(full_key)
+        blob.upload_from_filename(local_path)
+        return f"gs://{bucket_name}/{full_key}"
 
     def download(self, uri: str, local_path: str) -> None:
-        raise NotImplementedError("TODO Lab 1: blob.download_to_filename, creating parents")
+        from google.cloud import storage
+
+        bucket_name, key = _split_gs_uri(uri)
+        Path(local_path).parent.mkdir(parents=True, exist_ok=True)
+        client = storage.Client(project=self.cfg.project_id)
+        client.bucket(bucket_name).blob(key).download_to_filename(local_path)
 
     def push_image(self, local_tag: str) -> str:
-        raise NotImplementedError("TODO Lab 1: configure-docker, push, return repo@sha256:...")
+        registry = self.cfg.container_registry.rstrip("/")
+        registry_host = registry.split("/", 1)[0]
+        repo_path, _, tag = local_tag.rpartition(":")
+        remote_tag = f"{registry}/{repo_path}:{tag or 'latest'}"
+
+        subprocess.run(
+            ["gcloud", "auth", "configure-docker", registry_host, "--quiet"],
+            check=True,
+        )
+        subprocess.run(["docker", "tag", local_tag, remote_tag], check=True)
+        # Which stream carries "digest: sha256:..." depends on the docker CLI's progress
+        # writer (buildkit vs. classic, TTY vs. not) and isn't consistent across versions —
+        # merge stderr into stdout so the search doesn't depend on that detail.
+        result = subprocess.run(
+            ["docker", "push", remote_tag],
+            check=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+        )
+
+        match = _DIGEST_RE.search(result.stdout)
+        if not match:
+            raise RuntimeError(f"could not parse digest from push output:\n{result.stdout}")
+        return f"{registry}/{repo_path}@{match.group(1)}"
 
     # submit_training / register_model  -> Lab 2 (Vertex custom training + Model Registry)
     # deploy / invoke                   -> Lab 3 (Vertex Endpoint)

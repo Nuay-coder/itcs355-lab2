@@ -6,6 +6,7 @@ IMAGE ?= itcs355-lab1
 TAG   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 PLATFORM ?= linux/amd64
 SEED ?= 20260101
+GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
 
 .PHONY: help setup cloud-check data test portability-audit train image image-push reproduce verify clean teardown \
         tune compare reload-check serve serve-image loadtest drift inject-drift pipeline cost swap-check llm-eval llm-gate
@@ -34,7 +35,7 @@ train: ## Train locally, outside the container
 	python -m src.train --seed $(SEED) --metrics-out reports/metrics.json
 
 image: ## Build the training image for linux/amd64
-	docker buildx build --platform $(PLATFORM) -t $(IMAGE):$(TAG) --load .
+	docker buildx build --platform $(PLATFORM) --build-arg GIT_COMMIT=$(GIT_COMMIT) -t $(IMAGE):$(TAG) --load .
 
 image-push: image ## Push to CONTAINER_REGISTRY via your adapter
 	python -c "from src import config; from cloudlayer.factory import get_adapter; \
