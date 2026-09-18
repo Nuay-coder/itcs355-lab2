@@ -31,6 +31,7 @@ reproduce` pins the seed, so seed sensitivity is not the right thing to size the
 sweeping the seed instead of the hyperparameters moves `test_roc_auc` by far more than this,
 because the seed also reshuffles which machines land in which split. The five runs below hold the seed fixed and vary the model instead, which is why their spread
 (0.8433–0.8532) is wider than the claimed tolerance without contradicting it.
+
 ---
 
 ## The problem
@@ -118,6 +119,7 @@ Test performance falls roughly monotonically as depth grows alongside tree count
 drops to 0.8433, suggesting depth is the more overfitting-prone knob here even when paired with
 more trees to average over. The production default (`max_depth=8`, `n_estimators=200`, the
 Dockerfile `CMD`) sits in the middle of that trend.
+
 ---
 
 ## Reproducibility trade-off
