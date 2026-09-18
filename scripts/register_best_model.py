@@ -19,7 +19,6 @@ LINEAGE below is fixed and verified against the real MLflow run — not recomput
 """
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
@@ -119,7 +118,7 @@ def main() -> int:
     print(f"  version_aliases:  {stored['version_aliases']}")
     print(f"  artifact_uri:     {stored['artifact_uri']}")
     print(f"  labels:           {stored['labels']}")
-    print(f"  lineage (version_description, JSON, verified byte-exact against the input):")
+    print("  lineage (version_description, JSON, verified byte-exact against the input):")
     for k, v in stored["lineage"].items():
         print(f"    {k} = {v}")
 
