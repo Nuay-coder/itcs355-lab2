@@ -40,11 +40,13 @@ def main() -> int:
 
     metric_col = f"metrics.{args.metric}"
     cost_col = "metrics.cost_thb"
+    test_col = "metrics.test_roc_auc"
     baseline = runs[metric_col].min()
 
     table = pd.DataFrame({
         "run_id": runs["run_id"].str[:8],
         args.metric: runs[metric_col].round(4),
+        "test_roc_auc": runs[test_col].round(4) if test_col in runs else pd.NA,
         "cost_thb": runs.get(cost_col, 0).round(4),
         "n_estimators": runs.get("params.n_estimators"),
         "max_depth": runs.get("params.max_depth"),
@@ -52,7 +54,14 @@ def main() -> int:
     })
     gain = (table[args.metric] - baseline).clip(lower=1e-9)
     table["thb_per_point"] = (table["cost_thb"] / (gain * 100)).round(4)
-    table = table.sort_values(args.metric, ascending=False)
+
+    # Sort stays by args.metric (val_roc_auc by default), but rank_test makes it visible
+    # in the same table when the highest-val trial isn't the highest-test one — the
+    # thing "highest validation score" justifications miss.
+    table = table.sort_values(args.metric, ascending=False).reset_index(drop=True)
+    table.insert(0, "rank_val", range(1, len(table) + 1))
+    table.insert(table.columns.get_loc("test_roc_auc") + 1, "rank_test",
+                 table["test_roc_auc"].rank(ascending=False, method="min").astype(int))
 
     args.out.parent.mkdir(parents=True, exist_ok=True)
     lines = [
@@ -64,6 +73,10 @@ def main() -> int:
         "`thb_per_point` is cost per percentage point of "
         f"{args.metric} above the worst trial. Cheap improvements rank low; expensive "
         "improvements rank high, however good the headline number is.",
+        "",
+        f"Sorted by `{args.metric}` (`rank_val`). `rank_test` ranks the same trials by "
+        "`test_roc_auc` instead — when `rank_val` == 1 doesn't line up with `rank_test` == 1, "
+        "the highest-validation trial is not the highest-test one.",
         "",
         table.to_markdown(index=False),
         "",

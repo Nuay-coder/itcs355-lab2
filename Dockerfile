@@ -40,10 +40,16 @@ RUN chown runner:runner /app
 COPY --chown=runner:runner src/ ./src/
 COPY --chown=runner:runner cloudlayer/ ./cloudlayer/
 COPY --chown=runner:runner scripts/ ./scripts/
+# Pointer + remote config only — never the data itself, and never .dvc/cache.
+# entrypoint.sh uses these to `dvc pull` the real bytes at container start, on the one
+# path (managed training) that has no local data and no bind mount to read it from.
+COPY --chown=runner:runner .dvc/config ./.dvc/config
+COPY --chown=runner:runner data/raw.dvc ./data/raw.dvc
+COPY --chown=runner:runner --chmod=755 entrypoint.sh ./entrypoint.sh
 
 USER runner
 
 # Credentials NEVER enter an image layer. They arrive at runtime from SECRET_STORE_PATH
 # or from the platform's identity. If you find yourself adding an ARG for a key, stop.
-ENTRYPOINT ["python", "-m", "src.train"]
+ENTRYPOINT ["./entrypoint.sh"]
 CMD ["--n-estimators", "200", "--max-depth", "8"]

@@ -7,9 +7,14 @@ TAG   ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo dev)
 PLATFORM ?= linux/amd64
 SEED ?= 20260101
 GIT_COMMIT ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+# The Lab 2 registered model (see README.md "Lab 2 Task 4 — Model Registry").
+# MODEL_REGISTRY_NAME in cloud.env is the project-level registry slot, not this
+# specific model's resource ID, so reload-check gets its own defaults here.
+MODEL ?= projects/126202218664/locations/asia-southeast1/models/437231793901404160
+VERSION ?= production
 
 .PHONY: help setup cloud-check data test portability-audit train image image-push reproduce verify clean teardown \
-        tune compare reload-check serve serve-image loadtest drift inject-drift pipeline cost swap-check llm-eval llm-gate
+        train-remote tune tune-remote compare reload-check serve serve-image loadtest drift inject-drift pipeline cost swap-check llm-eval llm-gate
 
 help:
 	@grep -E "^[a-zA-Z_-]+:.*?## .*$$" $(MAKEFILE_LIST) | awk -F":.*?## " "{printf \"  %-20s %s\\n\", \$$1, \$$2}"
@@ -59,14 +64,26 @@ clean: ## Remove local artifacts
 	rm -rf mlruns mlartifacts mlflow.db reports/metrics.json .pytest_cache
 
 # --- Lab 2 -------------------------------------------------------------------
+train-remote: image ## Push the image and run it as a managed training job (adapter.submit_training)
+	python -c "from src import config; from cloudlayer.factory import get_adapter; \
+	cfg = config.load(); adapter = get_adapter(cfg); \
+	image_uri = adapter.push_image(\"$(IMAGE):$(TAG)\"); \
+	print('image:', image_uri); \
+	job_id = adapter.submit_training(image_uri, {'seed': $(SEED)}); \
+	print('job:', job_id); \
+	print(adapter.wait_training(job_id))"
+
 tune: ## Budgeted hyperparameter study (>=12 trials)
 	python -m src.tune --trials 12 --budget-thb 150
+
+tune-remote: ## Same study as real Vertex jobs on spot compute. Add EXECUTE=1 to submit for real.
+	python -m src.tune_remote --trials 12 --budget-thb 150 --tag $(TAG) $(if $(EXECUTE),--execute,)
 
 compare: ## Rank runs by metric and by cost per point
 	python scripts/compare_runs.py --experiment itcs355-lab2
 
-reload-check: ## Load the registered model by version and score rows
-	python scripts/reload_check.py --name $(MODEL_REGISTRY_NAME) --version $(VERSION)
+reload-check: ## Load the registered model by version/alias (from the registry, not a local file) and score rows
+	python scripts/reload_check.py --model $(MODEL) --version $(VERSION)
 
 # --- Lab 3 -------------------------------------------------------------------
 serve: ## Run the inference service locally on :8080

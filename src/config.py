@@ -13,7 +13,7 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parents[1]
 ENV_FILE = REPO_ROOT / "cloud.env"
 
-# The eight capability slots every lab depends on. scripts/cloud_check.py resolves each.
+# The nine capability slots every lab depends on. scripts/cloud_check.py resolves each.
 CAPABILITY_SLOTS = (
     "CLOUD_PROVIDER",
     "PROJECT_ID",
@@ -23,6 +23,7 @@ CAPABILITY_SLOTS = (
     "MLFLOW_TRACKING_URI",
     "MODEL_REGISTRY_NAME",
     "IDENTITY_REF",
+    "TRAINING_SERVICE_ACCOUNT",
 )
 
 
@@ -51,6 +52,7 @@ class Config:
     mlflow_tracking_uri: str
     model_registry_name: str
     identity_ref: str
+    training_service_account: str
     data_dir: Path = field(default=REPO_ROOT / "data")
     reports_dir: Path = field(default=REPO_ROOT / "reports")
 
@@ -80,4 +82,5 @@ def load(strict: bool = True) -> Config:
         mlflow_tracking_uri=get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db"),
         model_registry_name=get("MODEL_REGISTRY_NAME", "itcs355"),
         identity_ref=get("IDENTITY_REF", ""),
+        training_service_account=get("TRAINING_SERVICE_ACCOUNT", ""),
     )
